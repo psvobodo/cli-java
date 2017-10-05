@@ -18,10 +18,11 @@
  */
 
 import com.redhat.mqe.aoc.Main
+import org.junit.jupiter.api.Test
 
 class AocMainTest : AbstractMainTest() {
 
-    override val brokerUrl = "tcp://127.0.0.1:61616"
+    override val brokerUrl = "tcp://10.37.145.71:61616"
 
     override val senderAdditionalOptions =
 // TODO(jdanek): uncomment when we can handle mixing regular and reconnect options
@@ -79,4 +80,37 @@ class AocMainTest : AbstractMainTest() {
 """.split(" ", "\n").toTypedArray()
 
     override fun main(args: Array<String>) = Main.main(args)
+
+
+    @Test
+    fun sendAndReceiveSingleMessage_ow() {
+        val numberOfMessages = 100;
+
+        val receiver1 = Thread {
+            main("receiver --log-msgs dict --broker $brokerUrl --address Consumer.A.VirtualTopic.Orders --count 1".split(" ").toTypedArray())
+        }
+
+        val receiver2 = Thread {
+            main("receiver --log-msgs dict --broker $brokerUrl --address Consumer.B.VirtualTopic.Orders --count 1000 -t 10".split(" ").toTypedArray())
+        }
+
+        val threads = ArrayList<Thread>()
+        for (i in 1..numberOfMessages) {
+            threads.add(Thread {
+                main("sender --log-msgs dict --broker ${brokerUrl} --address topic://VirtualTopic.Orders --count 1".split(" ").toTypedArray())
+            })
+        }
+
+        receiver1.start()
+        receiver2.start()
+
+        Thread.sleep(1000)
+
+        for (t in threads) {
+            t.start()
+        }
+        for (t in threads) {
+            t.join()
+        }
+    }
 }
